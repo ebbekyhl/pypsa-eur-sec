@@ -35,7 +35,12 @@ def add_brownfield(n, n_p, year):
             c.df.index[c.df.lifetime==np.inf]
         )
 
-        # remove assets whose build_year + lifetime < year
+        # remove assets (except nuclear-2019) whose build_year + lifetime < year
+        old_comps = c.df[(c.df.build_year + c.df.lifetime < year)]
+        if c.name == 'Link': # < --------------------------------------------------------------------------------- Uncomment
+            nuclear2keep = old_comps[(old_comps.carrier == 'nuclear') & (old_comps.build_year == 2019)].index
+            old_comps = old_comps.drop(nuclear2keep)
+
         n_p.mremove(
             c.name,
             c.df.index[c.df.build_year + c.df.lifetime < year]
@@ -72,6 +77,10 @@ def add_brownfield(n, n_p, year):
         c.df[attr + "_nom"] = c.df[attr + "_nom_opt"]
         c.df[attr + "_nom_extendable"] = False
 
+        if c.name == 'Link': # <------------------------------------ Uncomment
+            print('update nuclear')
+            update_nuclear(n_p,year,nuclear_plants,cdict)
+
         n.import_components_from_dataframe(c.df, c.name)
 
         # copy time-dependent
@@ -107,7 +116,44 @@ def add_brownfield(n, n_p, year):
             n.links.loc[new_pipes, "p_nom"] = 0.
             n.links.loc[new_pipes, "p_nom_min"] = 0.
 
+def update_nuclear(n_p,year,nuclear_plants,cdict): # <------------------------------------------ Uncomment
+    nodes_main = {'GB':'GB5 0',
+                'ES':'ES0 0',
+                'IT':'IT6 0'}
 
+    c = n_p.links
+    df_nuclear = pd.DataFrame()    
+
+    # Country-aggregate nuclear power capacity which is not decommissioned
+    nuclear_active_aggregate = nuclear_plants[nuclear_plants.decommission_year >= year].groupby('country').sum()
+
+    # Remove decommissioned nuclear capacity from "nuclear-2019" links
+    nucplants = c[c.carrier == 'nuclear']
+    df_existing = nucplants[nucplants.build_year == 2019]
+    n_temp = n_p.copy()
+    n_temp.mremove(
+            "Link",
+            c[c.carrier == 'nuclear'][c[c.carrier == 'nuclear'].build_year == 2019].index
+            )
+    for npi in df_existing.index:
+        if npi[0:2] in nodes_main.keys():
+            node = nodes_main[npi[0:2]] + ' nuclear-2019'
+        else:
+            node = npi
+        df_i = df_existing.loc[node].copy()
+        if cdict[df_i.name[0:2]] in nuclear_active_aggregate.index:
+            print("update nuclear in " + npi[0:2])
+            df_i.p_nom = nuclear_active_aggregate.loc[cdict[df_i.name[0:2]]]['Net performance MW'] /df_i.loc['efficiency']
+        else:
+            df_i.p_nom = 0
+        df_nuclear[node] = df_i
+
+    df = n_temp.links[(n_temp.links.carrier == 'nuclear')].append(df_nuclear.T)
+    n_p.links[(n_p.links.carrier == 'nuclear')] = df
+
+    n_p.mremove('Link',
+                n_p.links[n_p.links.carrier == 'nuclear'][n_p.links[n_p.links.carrier == 'nuclear'].p_nom == 0].index
+                )
 
 #%%
 if __name__ == "__main__":
