@@ -382,7 +382,7 @@ def plot_carbon_budget_distribution(input_eurostat):
     ax1 = plt.subplot(gs1[0,0])
     ax1.set_ylabel('CO$_2$ emissions (Gt per year)',fontsize=22)
     ax1.set_ylim([0,5])
-    ax1.set_xlim([1990,snakemake.config['scenario']['planning_horizons'][-1]+1])
+    ax1.set_xlim([1990,snakemake.config['scenario']['investment_year'][-1]+1])
 
     path_cb = snakemake.config['results_dir'] + snakemake.config['run'] + '/csvs/'
     countries = pd.read_csv(snakemake.input.country_codes, index_col=1)

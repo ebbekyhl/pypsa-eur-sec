@@ -168,7 +168,7 @@ def calculate_costs(n, label, costs):
 
 
 def calculate_cumulative_cost():
-    planning_horizons = snakemake.config['scenario']['planning_horizons']
+    planning_horizons = snakemake.config['scenario']['investment_year']
 
     cumulative_cost = pd.DataFrame(index = df["costs"].sum().index,
                                   columns=pd.Series(data=np.arange(0,0.1, 0.01), name='social discount rate'))
@@ -528,7 +528,7 @@ def make_summaries(networks_dict):
 
     columns = pd.MultiIndex.from_tuples(
         networks_dict.keys(),
-        names=["cluster", "lv", "opt", "planning_horizon"]
+        names=["cluster", "lv", "opt", "investment_year"]
     )
 
     df = {}
@@ -562,14 +562,14 @@ if __name__ == "__main__":
         snakemake = mock_snakemake('make_summary')
     
     networks_dict = {
-        (cluster, lv, opt+sector_opt, planning_horizon) :
-        snakemake.config['results_dir'] + snakemake.config['run'] + f'/postnetworks/elec_s{simpl}_{cluster}_lv{lv}_{opt}_{sector_opt}_{planning_horizon}.nc' \
+        (cluster, lv, opt+sector_opt, investment_year) :
+        snakemake.config['results_dir'] + snakemake.config['run'] + f'/postnetworks/elec_s{simpl}_{cluster}_lv{lv}_{opt}_{sector_opt}_iy{investment_year}.nc' \
         for simpl in snakemake.config['scenario']['simpl'] \
         for cluster in snakemake.config['scenario']['clusters'] \
         for opt in snakemake.config['scenario']['opts'] \
         for sector_opt in snakemake.config['scenario']['sector_opts'] \
         for lv in snakemake.config['scenario']['lv'] \
-        for planning_horizon in snakemake.config['scenario']['planning_horizons']
+        for investment_year in snakemake.config['scenario']['investment_year']
     }
 
     print(networks_dict)

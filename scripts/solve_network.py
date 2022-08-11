@@ -31,7 +31,7 @@ def _add_land_use_constraint(n):
 
     for carrier in ['solar', 'onwind', 'offwind-ac', 'offwind-dc']:
         existing = n.generators.loc[n.generators.carrier==carrier,"p_nom"].groupby(n.generators.bus.map(n.buses.location)).sum()
-        existing.index += " " + carrier + "-" + snakemake.wildcards.planning_horizons
+        existing.index += " " + carrier + "-" + snakemake.wildcards.investment_year
         n.generators.loc[existing.index,"p_nom_max"] -= existing
 
     n.generators.p_nom_max.clip(lower=0, inplace=True)
@@ -40,9 +40,9 @@ def _add_land_use_constraint(n):
 def _add_land_use_constraint_m(n):
     # if generators clustering is lower than network clustering, land_use accounting is at generators clusters
 
-    planning_horizons = snakemake.config["scenario"]["planning_horizons"]
+    planning_horizons = snakemake.config["scenario"]["investment_year"]
     grouping_years = snakemake.config["existing_capacities"]["grouping_years"]
-    current_horizon = snakemake.wildcards.planning_horizons
+    current_horizon = snakemake.wildcards.investment_year
 
     for carrier in ['solar', 'onwind', 'offwind-ac', 'offwind-dc']:
 
@@ -52,7 +52,7 @@ def _add_land_use_constraint_m(n):
         previous_years = [
             str(y) for y in
             planning_horizons + grouping_years
-            if y < int(snakemake.wildcards.planning_horizons)
+            if y < int(snakemake.wildcards.investment_year)
         ]
 
         for p_year in previous_years:
@@ -284,7 +284,7 @@ if __name__ == "__main__":
             clusters="37",
             lv=1.0,
             sector_opts='168H-T-H-B-I-A-solar+p3-dist1',
-            planning_horizons="2030",
+            investment_year="2030",
         )
 
     logging.basicConfig(filename=snakemake.log.python,

@@ -12,7 +12,6 @@ configfile: "config.yaml"
 
 
 wildcard_constraints:
-    investment_year="[0-9]{4}|",
     lv="[a-z0-9\.]+",
     simpl="[a-zA-Z0-9]*",
     clusters="[0-9]+m?",
@@ -614,7 +613,7 @@ if config["foresight"] == "myopic":
             busmap_s=pypsaeur("resources/busmap_elec_s{simpl}.csv"),
             busmap=pypsaeur("resources/busmap_elec_s{simpl}_{clusters}.csv"),
             clustered_pop_layout="resources/pop_layout_elec_s{simpl}_{clusters}.csv",
-            costs=CDIR + "costs_iy{}.csv".format(config['scenario']['investment_year'][0]),
+            costs=CDIR + "costs_{}.csv".format(config['scenario']['investment_year'][0]),
             cop_soil_total="resources/cop_soil_total_elec_s{simpl}_{clusters}.nc",
             cop_air_total="resources/cop_air_total_elec_s{simpl}_{clusters}.nc",
             existing_heating='data/existing_infrastructure/existing_heating_raw.csv',
