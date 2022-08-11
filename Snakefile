@@ -12,6 +12,7 @@ configfile: "config.yaml"
 
 
 wildcard_constraints:
+    investment_year="[0-9]{4}|",
     lv="[a-z0-9\.]+",
     simpl="[a-zA-Z0-9]*",
     clusters="[0-9]+m?",
@@ -35,13 +36,13 @@ rule all:
 
 rule solve_all_networks:
     input:
-        expand(RDIR + "/postnetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc",
+        expand(RDIR + "/postnetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc",
                **config['scenario'])
 
 
 rule prepare_sector_networks:
     input:
-        expand(RDIR + "/prenetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc",
+        expand(RDIR + "/prenetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc",
                **config['scenario'])
 
 datafiles = [
@@ -337,10 +338,10 @@ rule build_industrial_production_per_country_tomorrow:
     input:
         industrial_production_per_country="resources/industrial_production_per_country.csv"
     output:
-        industrial_production_per_country_tomorrow="resources/industrial_production_per_country_tomorrow_{planning_horizons}.csv"
+        industrial_production_per_country_tomorrow="resources/industrial_production_per_country_tomorrow_iy{investment_year}.csv"
     threads: 1
     resources: mem_mb=1000
-    benchmark: "benchmarks/build_industrial_production_per_country_tomorrow_{planning_horizons}"
+    benchmark: "benchmarks/build_industrial_production_per_country_tomorrow_iy{investment_year}"
     script: 'scripts/build_industrial_production_per_country_tomorrow.py'
 
 
@@ -360,25 +361,25 @@ rule build_industrial_distribution_key:
 rule build_industrial_production_per_node:
     input:
         industrial_distribution_key="resources/industrial_distribution_key_elec_s{simpl}_{clusters}.csv",
-        industrial_production_per_country_tomorrow="resources/industrial_production_per_country_tomorrow_{planning_horizons}.csv"
+        industrial_production_per_country_tomorrow="resources/industrial_production_per_country_tomorrow_iy{investment_year}.csv"
     output:
-        industrial_production_per_node="resources/industrial_production_elec_s{simpl}_{clusters}_{planning_horizons}.csv"
+        industrial_production_per_node="resources/industrial_production_elec_s{simpl}_{clusters}_iy{investment_year}.csv"
     threads: 1
     resources: mem_mb=1000
-    benchmark: "benchmarks/build_industrial_production_per_node/s{simpl}_{clusters}_{planning_horizons}"
+    benchmark: "benchmarks/build_industrial_production_per_node/s{simpl}_{clusters}_iy{investment_year}"
     script: 'scripts/build_industrial_production_per_node.py'
 
 
 rule build_industrial_energy_demand_per_node:
     input:
         industry_sector_ratios="resources/industry_sector_ratios.csv",
-        industrial_production_per_node="resources/industrial_production_elec_s{simpl}_{clusters}_{planning_horizons}.csv",
+        industrial_production_per_node="resources/industrial_production_elec_s{simpl}_{clusters}_iy{investment_year}.csv",
         industrial_energy_demand_per_node_today="resources/industrial_energy_demand_today_elec_s{simpl}_{clusters}.csv"
     output:
-        industrial_energy_demand_per_node="resources/industrial_energy_demand_elec_s{simpl}_{clusters}_{planning_horizons}.csv"
+        industrial_energy_demand_per_node="resources/industrial_energy_demand_elec_s{simpl}_{clusters}_iy{investment_year}.csv"
     threads: 1
     resources: mem_mb=1000
-    benchmark: "benchmarks/build_industrial_energy_demand_per_node/s{simpl}_{clusters}_{planning_horizons}"
+    benchmark: "benchmarks/build_industrial_energy_demand_per_node/s{simpl}_{clusters}_iy{investment_year}"
     script: 'scripts/build_industrial_energy_demand_per_node.py'
 
 
@@ -474,7 +475,7 @@ rule prepare_sector_network:
         co2="data/eea/UNFCCC_v23.csv",
         biomass_potentials='resources/biomass_potentials_s{simpl}_{clusters}.csv',
         heat_profile="data/heat_load_profile_BDEW.csv",
-        costs=CDIR + "costs_{planning_horizons}.csv",
+        costs=CDIR + "costs_{investment_year}.csv",
         profile_offwind_ac=pypsaeur("resources/profile_offwind-ac.nc"),
         profile_offwind_dc=pypsaeur("resources/profile_offwind-dc.nc"),
         h2_cavern="resources/salt_cavern_potentials_s{simpl}_{clusters}.csv",
@@ -482,7 +483,7 @@ rule prepare_sector_network:
         busmap=pypsaeur("resources/busmap_elec_s{simpl}_{clusters}.csv"),
         clustered_pop_layout="resources/pop_layout_elec_s{simpl}_{clusters}.csv",
         simplified_pop_layout="resources/pop_layout_elec_s{simpl}.csv",
-        industrial_demand="resources/industrial_energy_demand_elec_s{simpl}_{clusters}_{planning_horizons}.csv",
+        industrial_demand="resources/industrial_energy_demand_elec_s{simpl}_{clusters}_iy{investment_year}.csv",
         heat_demand_urban="resources/heat_demand_urban_elec_s{simpl}_{clusters}.nc",
         heat_demand_rural="resources/heat_demand_rural_elec_s{simpl}_{clusters}.nc",
         heat_demand_total="resources/heat_demand_total_elec_s{simpl}_{clusters}.nc",
@@ -504,23 +505,23 @@ rule prepare_sector_network:
         **build_retro_cost_output,
         **build_biomass_transport_costs_output,
         **gas_infrastructure
-    output: RDIR + '/prenetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc'
+    output: RDIR + '/prenetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc'
     threads: 1
     resources: mem_mb=2000
-    benchmark: RDIR + "/benchmarks/prepare_network/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}"
+    benchmark: RDIR + "/benchmarks/prepare_network/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}"
     script: "scripts/prepare_sector_network.py"
 
 
 rule plot_network:
     input:
         overrides="data/override_component_attrs",
-        network=RDIR + "/postnetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc"
+        network=RDIR + "/postnetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc"
     output:
-        map=RDIR + "/maps/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}-costs-all_{planning_horizons}.pdf",
-        today=RDIR + "/maps/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}-today.pdf"
+        map=RDIR + "/maps/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}-costs-all_iy{investment_year}.pdf",
+        today=RDIR + "/maps/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}-today.pdf"
     threads: 2
     resources: mem_mb=10000
-    benchmark: RDIR + "/benchmarks/plot_network/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}"
+    benchmark: RDIR + "/benchmarks/plot_network/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}"
     script: "scripts/plot_network.py"
 
 
@@ -536,12 +537,12 @@ rule make_summary:
     input:
         overrides="data/override_component_attrs",
         networks=expand(
-            RDIR + "/postnetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc",
+            RDIR + "/postnetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc",
             **config['scenario']
         ),
-        costs=CDIR + "costs_{}.csv".format(config['scenario']['planning_horizons'][0]),
+        costs=CDIR + "costs_{}.csv".format(config['scenario']['investment_year'][0]),
         plots=expand(
-            RDIR + "/maps/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}-costs-all_{planning_horizons}.pdf",
+            RDIR + "/maps/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}-costs-all_iy{investment_year}.pdf",
             **config['scenario']
         )
     output:
@@ -588,18 +589,18 @@ if config["foresight"] == "overnight":
     rule solve_network:
         input:
             overrides="data/override_component_attrs",
-            network=RDIR + "/prenetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc",
-            costs=CDIR + "costs_{planning_horizons}.csv",
+            network=RDIR + "/prenetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc",
+            costs=CDIR + "costs_{}.csv".format(config['costs']['year']),
             config=SDIR + '/configs/config.yaml'
-        output: RDIR + "/postnetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc"
+        output: RDIR + "/postnetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc"
         shadow: "shallow"
         log:
-            solver=RDIR + "/logs/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}_solver.log",
-            python=RDIR + "/logs/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}_python.log",
-            memory=RDIR + "/logs/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}_memory.log"
+            solver=RDIR + "/logs/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}_solver.log",
+            python=RDIR + "/logs/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}_python.log",
+            memory=RDIR + "/logs/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}_memory.log"
         threads: config['solving']['solver'].get('threads', 4)
         resources: mem_mb=config['solving']['mem']
-        benchmark: RDIR + "/benchmarks/solve_network/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}"
+        benchmark: RDIR + "/benchmarks/solve_network/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}"
         script: "scripts/solve_network.py"
 
 
@@ -608,12 +609,12 @@ if config["foresight"] == "myopic":
     rule add_existing_baseyear:
         input:
             overrides="data/override_component_attrs",
-            network=RDIR + '/prenetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc',
+            network=RDIR + '/prenetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc',
             powerplants=pypsaeur('resources/powerplants.csv'),
             busmap_s=pypsaeur("resources/busmap_elec_s{simpl}.csv"),
             busmap=pypsaeur("resources/busmap_elec_s{simpl}_{clusters}.csv"),
             clustered_pop_layout="resources/pop_layout_elec_s{simpl}_{clusters}.csv",
-            costs=CDIR + "costs_{}.csv".format(config['scenario']['planning_horizons'][0]),
+            costs=CDIR + "costs_iy{}.csv".format(config['scenario']['investment_year'][0]),
             cop_soil_total="resources/cop_soil_total_elec_s{simpl}_{clusters}.nc",
             cop_air_total="resources/cop_air_total_elec_s{simpl}_{clusters}.nc",
             existing_heating='data/existing_infrastructure/existing_heating_raw.csv',
@@ -621,18 +622,18 @@ if config["foresight"] == "myopic":
             existing_solar='data/existing_infrastructure/solar_capacity_IRENA.csv',
             existing_onwind='data/existing_infrastructure/onwind_capacity_IRENA.csv',
             existing_offwind='data/existing_infrastructure/offwind_capacity_IRENA.csv',
-        output: RDIR + '/prenetworks-brownfield/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc'
+        output: RDIR + '/prenetworks-brownfield/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc'
         wildcard_constraints:
-            planning_horizons=config['scenario']['planning_horizons'][0] #only applies to baseyear
+            planning_horizons=config['scenario']['investment_year'][0] #only applies to baseyear
         threads: 1
         resources: mem_mb=2000
-        benchmark: RDIR + '/benchmarks/add_existing_baseyear/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}'
+        benchmark: RDIR + '/benchmarks/add_existing_baseyear/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}'
         script: "scripts/add_existing_baseyear.py"
 
 
     def solved_previous_horizon(wildcards):
-        planning_horizons = config["scenario"]["planning_horizons"]
-        i = planning_horizons.index(int(wildcards.planning_horizons))
+        planning_horizons = config["scenario"]["investment_year"]
+        i = planning_horizons.index(int(wildcards.investment_year))
         planning_horizon_p = str(planning_horizons[i-1])
         return RDIR + "/postnetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_" + planning_horizon_p + ".nc"
 
@@ -640,15 +641,15 @@ if config["foresight"] == "myopic":
     rule add_brownfield:
         input:
             overrides="data/override_component_attrs",
-            network=RDIR + '/prenetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc',
+            network=RDIR + '/prenetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc',
             network_p=solved_previous_horizon, #solved network at previous time step
-            costs=CDIR + "costs_{planning_horizons}.csv",
+            costs=CDIR + "costs_{investment_year}.csv",
             cop_soil_total="resources/cop_soil_total_elec_s{simpl}_{clusters}.nc",
             cop_air_total="resources/cop_air_total_elec_s{simpl}_{clusters}.nc"
-        output: RDIR + "/prenetworks-brownfield/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc"
+        output: RDIR + "/prenetworks-brownfield/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc"
         threads: 4
         resources: mem_mb=10000
-        benchmark: RDIR + '/benchmarks/add_brownfield/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}'
+        benchmark: RDIR + '/benchmarks/add_brownfield/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}'
         script: "scripts/add_brownfield.py"
 
 
@@ -658,16 +659,16 @@ if config["foresight"] == "myopic":
     rule solve_network_myopic:
         input:
             overrides="data/override_component_attrs",
-            network=RDIR + "/prenetworks-brownfield/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc",
-            costs=CDIR + "costs_{planning_horizons}.csv",
+            network=RDIR + "/prenetworks-brownfield/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc",
+            costs=CDIR + "costs_{investment_year}.csv",
             config=SDIR + '/configs/config.yaml'
-        output: RDIR + "/postnetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.nc"
+        output: RDIR + "/postnetworks/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}.nc"
         shadow: "shallow"
         log:
-            solver=RDIR + "/logs/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}_solver.log",
-            python=RDIR + "/logs/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}_python.log",
-            memory=RDIR + "/logs/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}_memory.log"
+            solver=RDIR + "/logs/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}_solver.log",
+            python=RDIR + "/logs/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}_python.log",
+            memory=RDIR + "/logs/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}_memory.log"
         threads: 4
         resources: mem_mb=config['solving']['mem']
-        benchmark: RDIR + "/benchmarks/solve_network/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}"
+        benchmark: RDIR + "/benchmarks/solve_network/elec_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_iy{investment_year}"
         script: "scripts/solve_network.py"

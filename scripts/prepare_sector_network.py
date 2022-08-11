@@ -210,7 +210,7 @@ def build_carbon_budget(o, input_eurostat, fn, emissions_scope, report_year):
     e_0 = co2_emissions_year(countries, input_eurostat, opts, emissions_scope,
                              report_year,year=2018)
 
-    planning_horizons = snakemake.config['scenario']['planning_horizons']
+    planning_horizons = snakemake.config['scenario']['investment_year']
     t_0 = planning_horizons[0]
 
     if "be" in o:
@@ -2428,7 +2428,7 @@ if __name__ == "__main__":
             clusters="37",
             lv=1.5,
             sector_opts='cb40ex0-365H-T-H-B-I-A-solar+p3-dist1',
-            planning_horizons="2020",
+            investment_year="2020",
         )
 
     logging.basicConfig(level=snakemake.config['logging_level'])
@@ -2439,7 +2439,7 @@ if __name__ == "__main__":
 
     opts = snakemake.wildcards.sector_opts.split('-')
 
-    investment_year = int(snakemake.wildcards.planning_horizons[-4:])
+    investment_year = int(snakemake.wildcards.investment_year[-4:])
 
     overrides = override_component_attrs(snakemake.input.overrides)
     n = pypsa.Network(snakemake.input.network, override_component_attrs=overrides)
