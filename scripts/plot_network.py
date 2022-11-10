@@ -694,32 +694,31 @@ def plot_series(network, carrier="AC", name="test"):
     supply.columns = supply.columns.str.replace("residential ", "")
     supply.columns = supply.columns.str.replace("services ", "")
     supply.columns = supply.columns.str.replace("urban decentral ", "decentral ")
-
-    preferred_order = pd.Index(["domestic demand",
-                                "industry demand",
-                                "heat pump",
-                                "resistive heater",
-                                "BEV",
-                                "home battery",
+                            
+    preferred_order = pd.Index(["electric demand",
+                                "industry electricity",
                                 "transmission lines",
                                 "hydroelectricity",
-                                "nuclear",
-                                "wind",
-                                "solar PV",
+                                "hydro reservoir",
+                                "run of river",
+                                "pumped hydro storage",
+                                "gas-to-power/heat",
+                                "onshore wind",
+                                "offshore wind",
+                                "solar",
                                 "solar rooftop",
-                                "CHP",
-                                "CHP CC",
-                                "biomass",
-                                "gas",
-                                "heat pump",
                                 "solar thermal",
+                                "building retrofitting",
+                                "heat pump",
                                 "resistive heater",
+                                "OCGT",
+                                "gas boiler",
+                                "gas",
+                                "natural gas",
+                                "methanation",
+                                "hydrogen storage",
                                 "battery storage",
-                                "H2",
-                                "Fischer-Tropsch",
-                                "CO2 capture",
-                                "CO2 sequestration",
-                            ])
+                                "hot water storage"])
     
     supply =  supply.groupby(supply.columns, axis=1).sum()
    
