@@ -574,6 +574,57 @@ def plot_map_without(network):
         bbox_inches="tight"
     )
 
+def rename_low_voltage_techs(label):
+    rename_if_contains = ['home battery',
+                          'BEV',
+                          'V2G',
+                          'heat pump',
+                          'resistive heater',
+                          ]
+    
+    for rif in rename_if_contains:
+        if rif in label:
+            label = rif
+            
+    rename_if_contains_dict = {'electricity distribution grid':'High voltage electricity provision'}
+    
+    for old,new in rename_if_contains_dict.items():
+        if old in label:
+            label = new
+    
+    return label
+
+def split_el_distribution_grid(supply,network):
+    n = network.copy()
+    
+    low_voltage_consumers = n.links.bus0[n.links.bus0.str.endswith('low voltage')].index
+    low_voltage_providers = n.links.bus1[n.links.bus1.str.endswith('low voltage')].index
+    domestic_consumers = n.loads.query('carrier == "electricity"').index
+    industry_consumers = n.loads.query('carrier == "industry electricity"').index
+
+    # Consumption (negative):
+    lv_consumption = -n.links_t.p0[low_voltage_consumers].groupby(rename_low_voltage_techs,axis=1).sum() # From low voltage grid to consumers
+    domestic_consumption = -n.loads_t.p[domestic_consumers].sum(axis=1)
+    industry_consumption = -n.loads_t.p[industry_consumers].sum(axis=1)
+    
+    # Provision (positive)
+    lv_provision = n.links_t.p0[low_voltage_providers]
+    lv_provision = lv_provision[lv_provision.columns[~lv_provision.columns.str.endswith('grid')]].groupby(rename_low_voltage_techs,axis=1).sum() # From appliance to low voltage grid (e.g., V2G)
+    solar_rooftop = n.generators_t.p[n.generators.query('carrier == "solar rooftop"').index].sum(axis=1)
+
+    supply.drop(columns='electricity distribution grid',inplace=True)
+    
+    supply['domestic demand'] = domestic_consumption
+    supply['industry demand'] = industry_consumption
+    supply['solar rooftop'] = solar_rooftop
+
+    for i in lv_consumption.columns:
+        supply[i] = lv_consumption[i]
+        
+    for i in lv_provision.columns:
+        supply[i] = lv_provision[i]
+    
+    return supply
 
 def plot_series(network, carrier="AC", name="test"):
 
@@ -599,6 +650,9 @@ def plot_series(network, carrier="AC", name="test"):
             c.df.loc[comps, "sign"])).groupby(c.df.carrier, axis=1).sum()), axis=1)
 
     supply = supply.groupby(rename_techs_tyndp, axis=1).sum()
+    
+    if carrier == 'AC':
+        supply = split_el_distribution_grid(supply,n)
 
     both = supply.columns[(supply < 0.).any() & (supply > 0.).any()]
 
@@ -641,34 +695,43 @@ def plot_series(network, carrier="AC", name="test"):
     supply.columns = supply.columns.str.replace("services ", "")
     supply.columns = supply.columns.str.replace("urban decentral ", "decentral ")
 
-    preferred_order = pd.Index(["electric demand",
+    preferred_order = pd.Index(["domestic demand",
+                                "industry demand",
+                                "heat pump",
+                                "resistive heater",
+                                "BEV",
+                                "home battery",
                                 "transmission lines",
                                 "hydroelectricity",
-                                "hydro reservoir",
-                                "run of river",
-                                "pumped hydro storage",
-                                "CHP",
-                                "onshore wind",
-                                "offshore wind",
+                                "nuclear",
+                                "wind",
                                 "solar PV",
-                                "solar thermal",
-                                "building retrofitting",
-                                "ground heat pump",
-                                "air heat pump",
-                                "resistive heater",
-                                "OCGT",
-                                "gas boiler",
+                                "solar rooftop",
+                                "CHP",
+                                "CHP CC",
+                                "biomass",
                                 "gas",
-                                "natural gas",
-                                "methanation",
-                                "hydrogen storage",
+                                "heat pump",
+                                "solar thermal",
+                                "resistive heater",
                                 "battery storage",
-                                "hot water storage"])
-
+                                "H2",
+                                "Fischer-Tropsch",
+                                "CO2 capture",
+                                "CO2 sequestration",
+                            ])
+    
+    supply =  supply.groupby(supply.columns, axis=1).sum()
+   
+    supply_temp = supply.rename(columns={'battery storage charging':'battery charging',
+                                         'battery storage':'battery',
+                                         })
+    
+    supply = supply_temp.groupby(by=supply_temp.columns,axis=1).sum()
+    
     new_columns = (preferred_order.intersection(supply.columns)
                    .append(supply.columns.difference(preferred_order)))
-
-    supply =  supply.groupby(supply.columns, axis=1).sum()
+    
     fig, ax = plt.subplots()
     fig.set_size_inches((8, 5))
 
@@ -732,5 +795,5 @@ if __name__ == "__main__":
     plot_ch4_map(n)
     plot_map_without(n)
 
-    #plot_series(n, carrier="AC", name=suffix)
-    #plot_series(n, carrier="heat", name=suffix)
+    #plot_series(n, carrier="AC")
+    #plot_series(n, carrier="heat")
