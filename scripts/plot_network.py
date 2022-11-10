@@ -576,7 +576,7 @@ def plot_map_without(network):
 
 def rename_low_voltage_techs(label):
     rename_if_contains = ['home battery',
-                          'BEV',
+                          'BEV charger',
                           'V2G',
                           'heat pump',
                           'resistive heater',
@@ -614,8 +614,8 @@ def split_el_distribution_grid(supply,network):
 
     supply.drop(columns='electricity distribution grid',inplace=True)
     
-    supply['domestic demand'] = domestic_consumption
-    supply['industry demand'] = industry_consumption
+    supply['electric demand'] = domestic_consumption
+    supply['industry electricity'] = industry_consumption
     supply['solar rooftop'] = solar_rooftop
 
     for i in lv_consumption.columns:
