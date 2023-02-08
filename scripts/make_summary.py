@@ -563,7 +563,8 @@ if __name__ == "__main__":
     
     networks_dict = {
         (cluster, lv, opt+sector_opt, planning_horizon) :
-        snakemake.config['results_dir'] + snakemake.config['run'] + f'/postnetworks/elec_s{simpl}_{cluster}_lv{lv}_{opt}_{sector_opt}_{planning_horizon}.nc' \
+        snakemake.config['results_dir'] + snakemake.config['run'] + f'/postnetworks/elec_wy{wyear}_s{simpl}_{cluster}_lv{lv}_{opt}_{sector_opt}_{planning_horizon}.nc' \
+        for wyear in snakemake.config['scenario']['wyear'] \
         for simpl in snakemake.config['scenario']['simpl'] \
         for cluster in snakemake.config['scenario']['clusters'] \
         for opt in snakemake.config['scenario']['opts'] \
