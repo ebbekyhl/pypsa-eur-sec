@@ -12,6 +12,8 @@ foresight: overnight # options are overnight, myopic, perfect (perfect is not ye
 # if you use myopic or perfect foresight, set the investment years in "planning_horizons" below
 
 scenario:
+  wyear:
+    - 2013
   simpl: # only relevant for PyPSA-Eur
     - ''
   lv: # allowed transmission line volume expansion, can be any float >= 1.0 (today) or "opt"
