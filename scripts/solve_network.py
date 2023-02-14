@@ -1,6 +1,7 @@
 """Solve network."""
 
 import pypsa
+import os 
 
 import numpy as np
 import pandas as pd
@@ -292,7 +293,8 @@ if __name__ == "__main__":
 
     update_config_with_sector_opts(snakemake.config, snakemake.wildcards.sector_opts)
 
-    tmpdir = snakemake.config['solving'].get('tmpdir')
+    #tmpdir = snakemake.config['solving'].get('tmpdir')
+    tmpdir = '/scratch/' + os.environ['SLURM_JOB_ID']
     if tmpdir is not None:
         from pathlib import Path
         Path(tmpdir).mkdir(parents=True, exist_ok=True)
