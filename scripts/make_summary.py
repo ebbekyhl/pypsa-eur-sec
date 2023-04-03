@@ -179,10 +179,11 @@ def calculate_cumulative_cost():
 
     #integrate cost throughout the transition path
     for r in cumulative_cost.columns:
-        for cluster in cumulative_cost.index.get_level_values(level=0).unique():
-            for lv in cumulative_cost.index.get_level_values(level=1).unique():
-                for sector_opts in cumulative_cost.index.get_level_values(level=2).unique():
-                    cumulative_cost.loc[(cluster, lv, sector_opts, 'cumulative cost'),r] = np.trapz(cumulative_cost.loc[idx[cluster, lv, sector_opts,planning_horizons],r].values, x=planning_horizons)
+        for wyear in cumulative_cost.index.get_level_values(level=0).unique():
+            for cluster in cumulative_cost.index.get_level_values(level=1).unique():
+                for lv in cumulative_cost.index.get_level_values(level=2).unique():
+                    for sector_opts in cumulative_cost.index.get_level_values(level=3).unique():
+                        cumulative_cost.loc[(wyear, cluster, lv, sector_opts, 'cumulative cost'),r] = np.trapz(cumulative_cost.loc[idx[wyear, cluster, lv, sector_opts,planning_horizons],r].values, x=planning_horizons)
 
     return cumulative_cost
 
@@ -528,7 +529,7 @@ def make_summaries(networks_dict):
 
     columns = pd.MultiIndex.from_tuples(
         networks_dict.keys(),
-        names=["cluster", "lv", "opt", "planning_horizon"]
+        names=["wyear","cluster", "lv", "opt", "planning_horizon"]
     )
 
     df = {}
@@ -562,7 +563,7 @@ if __name__ == "__main__":
         snakemake = mock_snakemake('make_summary')
     
     networks_dict = {
-        (cluster, lv, opt+sector_opt, planning_horizon) :
+        (wyear, cluster, lv, opt+sector_opt, planning_horizon) :
         snakemake.config['results_dir'] + snakemake.config['run'] + f'/postnetworks/elec_wy{wyear}_s{simpl}_{cluster}_lv{lv}_{opt}_{sector_opt}_{planning_horizon}.nc' \
         for wyear in snakemake.config['scenario']['wyear'] \
         for simpl in snakemake.config['scenario']['simpl'] \
