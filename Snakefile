@@ -163,6 +163,7 @@ else:
 
 rule build_heat_demands:
     input:
+        #cutout = expand("/home/com/meenergy/cutouts/europe-{weatheryear}-era5.nc",**{'weatheryear':config['scenario']['wyear']}),
         pop_layout_total="resources/pop_layout_total.nc",
         pop_layout_urban="resources/pop_layout_urban.nc",
         pop_layout_rural="resources/pop_layout_rural.nc",
@@ -179,7 +180,7 @@ rule build_heat_demands:
 rule build_temperature_profiles:
     input:
         #cutout = pypsaeur("/home/com/meenergy/cutouts/europe-{wyear}-era5.nc"),
-        cutout = expand("/home/com/meenergy/cutouts/europe-{weatheryear}-era5.nc",**{'weatheryear':config['scenario']['wyear']}),
+        #cutout = expand("/home/com/meenergy/cutouts/europe-{weatheryear}-era5.nc",**{'weatheryear':config['scenario']['wyear']}),
         pop_layout_total="resources/pop_layout_total.nc",
         pop_layout_urban="resources/pop_layout_urban.nc",
         pop_layout_rural="resources/pop_layout_rural.nc",

@@ -15,9 +15,15 @@ if __name__ == '__main__':
             clusters=48,
         )
 
-    time = pd.date_range(freq='h', **snakemake.config['snapshots'])
-    cutout_config = snakemake.config['atlite']['cutout']
-    cutout = atlite.Cutout(cutout_config).sel(time=time)
+    #print(snakemake.input["cutout"])
+    weatheryear = snakemake.wildcards.wyear
+    print('wyear',weatheryear)
+    cutout = '/home/com/meenergy/cutouts/europe-' + weatheryear + '-era5.nc'
+    cutout = atlite.Cutout(cutout)
+
+    #time = pd.date_range(freq='h', **snakemake.config['snapshots'])
+    #cutout_config = snakemake.config['atlite']['cutout']
+    #cutout = atlite.Cutout(cutout_config).sel(time=time)
 
     clustered_regions = gpd.read_file(
         snakemake.input.regions_onshore).set_index('name').buffer(0).squeeze()
