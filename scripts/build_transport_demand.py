@@ -50,6 +50,20 @@ def build_transport_demand(traffic_fn, airtemp_fn, nodes, nodal_transport_data):
     # get heating demand for correction to demand time series
     temperature = xr.open_dataarray(airtemp_fn).to_pandas()
 
+    weatheryear = snakemake.wildcards.wyear
+
+    if (int(weatheryear) % 4 == 0 and int(weatheryear) % 100 != 0) or (int(weatheryear) % 400 == 0):
+        print('leap year. Omitting 29th Feb data point.')
+        temperature = temperature.drop(temperature.index[temperature.index.month == 2][temperature.index[temperature.index.month == 2].day == 29])
+
+    t_index = pd.date_range(freq='h', **snakemake.config["snapshots"]) #, tz="UTC")
+    print(t_index)
+    #t_index = pd.date_range(freq='h', **snakemake.config["snapshots"], tz="UTC")
+    #t_index = pd.date_range('1/1/' + str(n.snapshots.year[0]), '1/1/' + str(int(n.snapshots.year[0])+1),freq='h')[:-1]
+    temperature.index = t_index 
+
+    print(temperature)
+
     # correction factors for vehicle heating
     dd_ICE = transport_degree_factor(
         temperature,

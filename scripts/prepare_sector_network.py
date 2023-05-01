@@ -1383,7 +1383,18 @@ def add_land_transport(n, costs):
 def build_heat_demand(n):
 
     # copy forward the daily average heat demand into each hour, so it can be multipled by the intraday profile
-    daily_space_heat_demand = xr.open_dataarray(snakemake.input.heat_demand_total).to_pandas().reindex(index=n.snapshots, method="ffill")
+    #daily_space_heat_demand = xr.open_dataarray(snakemake.input.heat_demand_total).to_pandas().reindex(index=n.snapshots, method="ffill")
+    daily_space_heat_demand = xr.open_dataarray(snakemake.input.heat_demand_total).to_pandas()
+
+    weatheryear = snakemake.wildcards.wyear
+
+    if (int(weatheryear) % 4 == 0 and int(weatheryear) % 100 != 0) or (int(weatheryear) % 400 == 0):
+        print('leap year. Omitting 29th Feb data point.')
+        daily_space_heat_demand = daily_space_heat_demand.drop([pd.to_datetime('2/29/' + weatheryear)])
+        
+    t_index = pd.date_range(n.snapshots[0],n.snapshots[-1],freq='d')
+    daily_space_heat_demand.index = t_index
+    daily_space_heat_demand = daily_space_heat_demand.reindex(index=n.snapshots, method="ffill")
 
     intraday_profiles = pd.read_csv(snakemake.input.heat_profile, index_col=0)
 
@@ -1447,12 +1458,35 @@ def add_heat(n, costs):
         "urban central"
     ]
 
+    weatheryear = snakemake.wildcards.wyear
+
+    air_hp_cop = xr.open_dataarray(snakemake.input.cop_air_total).to_pandas() #.reindex(index=n.snapshots)
+    ground_hp_cop = xr.open_dataarray(snakemake.input.cop_soil_total).to_pandas() #.reindex(index=n.snapshots)
+    solar_thermal = xr.open_dataarray(snakemake.input.solar_thermal_total).to_pandas()#.reindex(index=n.snapshots)
+
+    #####
+    if (int(weatheryear) % 4 == 0 and int(weatheryear) % 100 != 0) or (int(weatheryear) % 400 == 0):
+        print('leap year. Omitting 29th Feb data point.')
+        air_hp_cop = air_hp_cop.drop(air_hp_cop.index[air_hp_cop.index.month == 2][air_hp_cop.index[air_hp_cop.index.month == 2].day == 29])
+        ground_hp_cop = ground_hp_cop.drop(ground_hp_cop.index[ground_hp_cop.index.month == 2][ground_hp_cop.index[ground_hp_cop.index.month == 2].day == 29])
+        solar_thermal = solar_thermal.drop(solar_thermal.index[solar_thermal.index.month == 2][solar_thermal.index[solar_thermal.index.month == 2].day == 29])
+
+    t_index = pd.date_range(freq='h', **snakemake.config["snapshots"])
+
+    air_hp_cop.index = t_index
+    ground_hp_cop.index = t_index
+    solar_thermal.index = t_index
+
+    air_hp_cop = air_hp_cop.reindex(index=n.snapshots)
+    ground_hp_cop = ground_hp_cop.reindex(index=n.snapshots)
+    solar_thermal = solar_thermal.reindex(index=n.snapshots)
+    ####
+
     cop = {
-        "air": xr.open_dataarray(snakemake.input.cop_air_total).to_pandas().reindex(index=n.snapshots),
-        "ground": xr.open_dataarray(snakemake.input.cop_soil_total).to_pandas().reindex(index=n.snapshots)
+        "air": air_hp_cop,
+        "ground": ground_hp_cop 
     }
 
-    solar_thermal = xr.open_dataarray(snakemake.input.solar_thermal_total).to_pandas().reindex(index=n.snapshots)
     # 1e3 converts from W/m^2 to MW/(1000m^2) = kW/m^2
     solar_thermal = options['solar_cf_correction'] * solar_thermal / 1e3
 
