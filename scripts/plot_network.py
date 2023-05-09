@@ -363,6 +363,46 @@ def plot_h2_map(network):
     )
 
 
+def plot_hydro(network):
+
+    constraint_countries = ['NO','AT','BA','BE','BG',
+                            'CH','CZ','DE','ES',
+                            'FR','NO','SE']
+
+    fig = plt.figure(figsize=[10,3*len(constraint_countries)])
+    gs = fig.add_gridspec(len(constraint_countries))
+    axs = gs.subplots(sharex=True)
+
+    hydro_units = network.storage_units.query('carrier == "hydro"')
+    #hydro_units_c = hydro_units[hydro_units.index.str.contains(c)]
+
+    ii = 0
+    hydro_units_constrained = []
+    for c in constraint_countries:
+        hydro_units_constrained = hydro_units[hydro_units.index.str.contains(c)]
+        for i in hydro_units_constrained.index:
+            country = i[0:2]
+            country_capacity = hydro_units_constrained.p_nom.sum()
+            nodal_share = hydro_units_constrained.loc[i].p_nom/country_capacity
+            limit_l = list(nodal_share*df_min[country]/1e6)
+            limit_u = list(nodal_share*df_max[country]/1e6)
+            x = df_min[country].index
+            axs[ii].fill_between(x,limit_l,limit_u,alpha=0.5,color='royalblue',lw=0)
+
+        hydro_t = network.storage_units_t.p[hydro_units.index[hydro_units.index.str.contains(c)]]
+        disp_plot = ((hydro_t.resample('m').sum()*8760/len(network.snapshots))/1e6)
+        disp_plot.index = x
+
+        axs[ii].plot(disp_plot.index,disp_plot)
+        axs[ii].set_title(c)
+        ii += 1
+        
+    fig.subplots_adjust(wspace=0.5,
+                        hspace=0.2)
+
+    fig.savefig(snakemake.output.hydro_dispatch, bbox_inches="tight")
+
+
 def plot_ch4_map(network):
 
     n = network.copy()
@@ -793,6 +833,6 @@ if __name__ == "__main__":
     plot_h2_map(n)
     plot_ch4_map(n)
     plot_map_without(n)
-
+    plot_hydro(n)
     #plot_series(n, carrier="AC")
     #plot_series(n, carrier="heat")
