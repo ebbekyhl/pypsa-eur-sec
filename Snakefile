@@ -522,7 +522,7 @@ rule plot_network:
     output:
         map=RDIR + "/maps/elec_wy{wyear}_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}-costs-all_{planning_horizons}.pdf",
         today=RDIR + "/maps/elec_wy{wyear}_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}-today.pdf",
-        hydro_dispatch = RDIR + "/graphs/hydro_dispatch_elec_wy{wyear}_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.pdf"
+        hydro_dispatch = RDIR + "/maps/hydro_dispatch_elec_wy{wyear}_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.pdf"
     threads: 2
     resources: mem_mb=10000
     benchmark: RDIR + "/benchmarks/plot_network/elec_wy{wyear}_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}"

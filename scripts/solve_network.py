@@ -284,13 +284,16 @@ def add_hydropower_constraint(n):
 
     constraint_countries = ['AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 
                             'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 
-                            'IT', 'LU', 'LV', 'ME', 'MK', 'NO', 'SE', 'SI']
+                            'IT', 'LU', 'LV', 'ME', 'MK', 'NO', 'SE', 'SI','GB']
     df_min = {}
     df_max = {}
     for c in constraint_countries:
-        df = read_dispatch(c)
-        df_min[c] = df.min(axis=1).resample('m').sum() # <------------------------- Define lower limit
-        df_max[c] = df.max(axis=1).resample('m').sum() # <------------------------- Define upper limit
+        if c == 'GB':
+            df = read_dispatch('UK')
+        else:
+            df = read_dispatch(c)
+        df_min[c] = df.quantile(0.05,axis=1).resample('m').sum() # <------------------------- Define lower limit
+        df_max[c] = df.quantile(0.95,axis=1).resample('m').sum() # <------------------------- Define upper limit
 
     hydro = n.storage_units.query('carrier == "hydro"')
     hydro_units = hydro.index
