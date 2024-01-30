@@ -20,6 +20,8 @@ from networkx.algorithms.connectivity.edge_augmentation import k_edge_augmentati
 from networkx.algorithms import complement
 from pypsa.geo import haversine_pts
 
+from solve_network import read_dispatch
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -320,6 +322,79 @@ def create_network_topology(n, prefix, carriers=["DC"], connector=" -> ", bidire
 
     return topo
 
+# Hydro capacity (in particular ror is very off, so we adjust it according to the historical dispatch data)
+# This happens for some reason in the simplify_network and cluster_network rules (pypsaeur)
+def adjust_hydro_capacity(n):
+
+    countries = ['FI','ES','FR','GR','AT',
+                'CH','NO','BE','BA','BG',
+                'CZ','DE','HR','HU','IT',
+                'LU','LV','ME','MK','SE',
+                'SI','GB']
+
+    hydro_res_units = n.storage_units.query('carrier == "hydro"').copy()
+    n_countries = n.buses.loc[hydro_res_units.bus].country.values
+    hydro_res_units['country'] = n_countries
+
+    for c in countries: #hydro_res_units.country:
+        if c == 'GB':
+            hist_dispatch_c = read_dispatch('UK')
+        else:
+            hist_dispatch_c = read_dispatch(c)
+
+        hist_dispatch_c_max = hist_dispatch_c.max().max()
+        print(hist_dispatch_c_max)
+
+        # storage_units
+        n_capacity_hydro = hydro_res_units[hydro_res_units.index.str.contains(c)].p_nom.sum()
+        
+        hydro_c = hydro_res_units.query('country == @c')
+
+        if n_capacity_hydro < hist_dispatch_c_max:
+            print("Adjusting ", c, " to ", hist_dispatch_c_max, " MW")
+
+            scaling = hist_dispatch_c_max/n_capacity_hydro
+            n.storage_units.loc[hydro_c.index,'p_nom'] *= scaling
+
+            print(n.storage_units.loc[hydro_c.index,'p_nom'])
+
+    print('hydro caps updated.')
+    return n
+
+def adjust_hydro_inflow(n):
+    # scaling factors that scales the inflow according to reference 2013-weather year network 
+    scaling_factors = pd.read_csv(snakemake.input.hydro_inflow_scaling_factors,
+                                    index_col=0,
+                                    skiprows=[0],
+                                    names=['scaling'])
+    
+    hydro_units = n.storage_units.query('carrier == "hydro"').index
+    
+    for hydro_unit in hydro_units:
+        c = hydro_unit[0:2]
+        if c=='BE' or hydro_unit not in n.storage_units_t.inflow.columns:
+            hydro_p_nom_c= n.storage_units.loc[hydro_units[hydro_units.str.contains(c)]].p_nom.sum()
+        
+            nodal_share = n.storage_units.loc[hydro_unit].p_nom/hydro_p_nom_c
+            
+            inflow_df = pd.read_csv(snakemake.input.hydro_inflow_timeseries,index_col=0)
+            inflow_df.index = pd.to_datetime(inflow_df.index)
+            
+            inflow_df = inflow_df.loc[n.snapshots]
+            n_inflow_corrected = inflow_df[c]
+            
+            df_hydro_t = n.storage_units_t.inflow
+            df_hydro_t.loc[df_hydro_t.index,pd.Index([hydro_unit])] = nodal_share*n_inflow_corrected
+            n.storage_units_t.inflow = df_hydro_t
+        else:
+            n_inflow = n.storage_units_t.inflow[hydro_unit]
+            n_inflow_corrected = n_inflow*scaling_factors.loc[c].item()
+            
+            df_hydro_t = n.storage_units_t.inflow
+            df_hydro_t.loc[df_hydro_t.index,pd.Index([hydro_unit])] = n_inflow_corrected
+            n.storage_units_t.inflow = df_hydro_t
+        print('hydro inflow for ', c, ' was corrected.')
+    return n
 
 # TODO merge issue with PyPSA-Eur
 def update_wind_solar_costs(n, costs):
@@ -2671,6 +2746,8 @@ if __name__ == "__main__":
 
     add_storage_and_grids(n, costs)
 
+    nodes = pop_layout.index
+
     # TODO merge with opts cost adjustment below
     for o in opts:
         if o[:4] == "wave":
@@ -2682,6 +2759,65 @@ if __name__ == "__main__":
             options['electricity_distribution_grid_cost_factor'] = float(o[4:].replace("p", ".").replace("m", "-"))
         if o == "biomasstransport":
             options["biomass_transport"] = True
+
+        if o[0:8] == "Alkaline":
+
+            if len(o) > 8:
+                c_factor = float(o[8:].split('x')[1])
+            else:
+                c_factor = 1
+
+            n.add("Carrier","H2 Alkaline Fuel Cell")
+            n.madd("Link",
+                nodes + " H2 Alkaline Fuel Cell",
+                bus0=nodes + " H2",
+                bus1=nodes,
+                p_nom_extendable=True,
+                carrier ="H2 Alkaline Fuel Cell",
+                efficiency=costs.at["alkaline fuel cell", "efficiency"],
+                capital_cost=c_factor*costs.at["alkaline fuel cell", "fixed"] * costs.at["fuel cell", "efficiency"], #NB: fixed cost is per MWel
+                lifetime=costs.at['alkaline fuel cell', 'lifetime']
+            )
+        
+        if o == "TES":
+            n.add("Carrier","TES")
+
+            n.madd("Bus",
+                    nodes+ " TES",
+                    location=nodes,
+                    carrier="TES")
+
+            tau = 30 # self-discharge time
+            deltaE = 1 - np.exp(-1/(24.*tau))
+            n.madd("Store",
+                    nodes + " TES Store",
+                    bus=nodes + " TES",
+                    e_nom_extendable=True,
+                    e_cyclic=True,
+                    carrier="TES",
+                    capital_cost=costs.at["TES Store","fixed"], #float(snakemake.wildcards.storage_c)*costs.at["X Store","fixed"],
+                    standing_loss = deltaE,
+                    lifetime = costs.at['TES Store','lifetime']) 
+
+            n.madd("Link",
+                    nodes + " TES Charge",
+                    bus1 = nodes + " TES",
+                    bus0 = nodes,
+                    p_nom_extendable = True,
+                    carrier = "TES Charge",
+                    efficiency = costs.at["TES Charge","efficiency"],
+                    capital_cost = costs.at["TES Charge","fixed"], #float(snakemake.wildcards.charge_c)*costs.at["X Charge","fixed"],
+                    lifetime = costs.at['TES Charge','lifetime'])
+
+            n.madd("Link",
+                    nodes + " TES Discharge",
+                    bus0 = nodes + " TES",
+                    bus1 = nodes,
+                    p_nom_extendable = True,
+                    carrier ="TES Discharge",
+                    efficiency = costs.at["TES Discharge","efficiency"],
+                    capital_cost = costs.at["TES Discharge","fixed"]*costs.at["TES Discharge","efficiency"], #float(snakemake.wildcards.discharge_c)*costs.at["X Discharge","fixed"]*eta_d, #NB: fixed cost is per MWel which is why we multiply by the efficiency
+                    lifetime = costs.at['TES Discharge','lifetime'])
 
     if "nodistrict" in opts:
         options["district_heating"]["progress"] = 0.0
@@ -2754,6 +2890,9 @@ if __name__ == "__main__":
         insert_electricity_distribution_grid(n, costs)
 
     maybe_adjust_costs_and_potentials(n, opts)
+
+    adjust_hydro_capacity(n)
+    adjust_hydro_inflow(n)
 
     if options['gas_distribution_grid']:
         insert_gas_distribution_costs(n, costs)

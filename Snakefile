@@ -85,7 +85,7 @@ rule build_clustered_population_layouts:
         pop_layout_total="resources/pop_layout_total.nc",
         pop_layout_urban="resources/pop_layout_urban.nc",
         pop_layout_rural="resources/pop_layout_rural.nc",
-        regions_onshore=pypsaeur('resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson')
+        regions_onshore=ancient(pypsaeur('resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson'))
     output:
         clustered_pop_layout="resources/pop_layout_elec_wy{wyear}_s{simpl}_{clusters}.csv"
     resources: mem_mb=10000
@@ -98,7 +98,7 @@ rule build_simplified_population_layouts:
         pop_layout_total="resources/pop_layout_total.nc",
         pop_layout_urban="resources/pop_layout_urban.nc",
         pop_layout_rural="resources/pop_layout_rural.nc",
-        regions_onshore=pypsaeur('resources/regions_onshore_elec_wy{wyear}_s{simpl}.geojson')
+        regions_onshore=ancient(pypsaeur('resources/regions_onshore_elec_wy{wyear}_s{simpl}.geojson'))
     output:
         clustered_pop_layout="resources/pop_layout_elec_wy{wyear}_s{simpl}.csv"
     resources: mem_mb=10000
@@ -136,8 +136,8 @@ if config["sector"]["gas_network"] or config["sector"]["H2_retrofit"]:
             entry="data/gas_network/scigrid-gas/data/IGGIELGN_BorderPoints.geojson",
             production="data/gas_network/scigrid-gas/data/IGGIELGN_Productions.geojson",
             planned_lng="data/gas_network/planned_LNGs.csv",
-            regions_onshore=pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson"),
-            regions_offshore=pypsaeur('resources/regions_offshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson')
+            regions_onshore=ancient(pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson")),
+            regions_offshore=ancient(pypsaeur('resources/regions_offshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson'))
         output:
             gas_input_nodes="resources/gas_input_locations_s{simpl}_{clusters}.geojson",
             gas_input_nodes_simplified="resources/gas_input_locations_s{simpl}_{clusters}_simplified.csv"
@@ -148,8 +148,8 @@ if config["sector"]["gas_network"] or config["sector"]["H2_retrofit"]:
     rule cluster_gas_network:
         input:
             cleaned_gas_network="resources/gas_network.csv",
-            regions_onshore=pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson"),
-            regions_offshore=pypsaeur("resources/regions_offshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson")
+            regions_onshore=ancient(pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson")),
+            regions_offshore=ancient(pypsaeur("resources/regions_offshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson"))
         output:
             clustered_gas_network="resources/gas_network_elec_wy{wyear}_s{simpl}_{clusters}.csv"
         resources: mem_mb=4000
@@ -167,7 +167,7 @@ rule build_heat_demands:
         pop_layout_total="resources/pop_layout_total.nc",
         pop_layout_urban="resources/pop_layout_urban.nc",
         pop_layout_rural="resources/pop_layout_rural.nc",
-        regions_onshore=pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson")
+        regions_onshore=ancient(pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson"))
     output:
         heat_demand_urban="resources/heat_demand_urban_elec_wy{wyear}_s{simpl}_{clusters}.nc",
         heat_demand_rural="resources/heat_demand_rural_elec_wy{wyear}_s{simpl}_{clusters}.nc",
@@ -184,7 +184,7 @@ rule build_temperature_profiles:
         pop_layout_total="resources/pop_layout_total.nc",
         pop_layout_urban="resources/pop_layout_urban.nc",
         pop_layout_rural="resources/pop_layout_rural.nc",
-        regions_onshore=pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson")
+        regions_onshore=ancient(pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson"))
     output:
         temp_soil_total="resources/temp_soil_total_elec_wy{wyear}_s{simpl}_{clusters}.nc",
         temp_soil_rural="resources/temp_soil_rural_elec_wy{wyear}_s{simpl}_{clusters}.nc",
@@ -222,7 +222,7 @@ rule build_solar_thermal_profiles:
         pop_layout_total="resources/pop_layout_total.nc",
         pop_layout_urban="resources/pop_layout_urban.nc",
         pop_layout_rural="resources/pop_layout_rural.nc",
-        regions_onshore=pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson")
+        regions_onshore=ancient(pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson"))
     output:
         solar_thermal_total="resources/solar_thermal_total_elec_wy{wyear}_s{simpl}_{clusters}.nc",
         solar_thermal_urban="resources/solar_thermal_urban_elec_wy{wyear}_s{simpl}_{clusters}.nc",
@@ -259,7 +259,7 @@ rule build_biomass_potentials:
     input:
         enspreso_biomass=HTTP.remote("https://cidportal.jrc.ec.europa.eu/ftp/jrc-opendata/ENSPRESO/ENSPRESO_BIOMASS.xlsx", keep_local=True),
         nuts2="data/nuts/NUTS_RG_10M_2013_4326_LEVL_2.geojson", # https://gisco-services.ec.europa.eu/distribution/v2/nuts/download/#nuts21
-        regions_onshore=pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson"),
+        regions_onshore=ancient(pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson")),
         nuts3_population="../pypsa-eur/data/bundle/nama_10r_3popgdp.tsv.gz",
         swiss_cantons="../pypsa-eur/data/bundle/ch_cantons.csv",
         swiss_population="../pypsa-eur/data/bundle/je-e-21.03.02.xls",
@@ -291,8 +291,8 @@ else:
 rule build_salt_cavern_potentials:
     input:
         salt_caverns="data/h2_salt_caverns_GWh_per_sqkm.geojson",
-        regions_onshore=pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson"),
-        regions_offshore=pypsaeur("resources/regions_offshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson"),
+        regions_onshore=ancient(pypsaeur("resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson")),
+        regions_offshore=ancient(pypsaeur("resources/regions_offshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson")),
     output:
         h2_cavern_potential="resources/salt_cavern_potentials_elec_wy{wyear}_s{simpl}_{clusters}.csv"
     threads: 1
@@ -350,7 +350,7 @@ rule build_industrial_production_per_country_tomorrow:
 
 rule build_industrial_distribution_key:
     input:
-        regions_onshore=pypsaeur('resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson'),
+        regions_onshore=ancient(pypsaeur('resources/regions_onshore_elec_wy{wyear}_s{simpl}_{clusters}.geojson')),
         clustered_pop_layout="resources/pop_layout_elec_wy{wyear}_s{simpl}_{clusters}.csv",
         hotmaps_industrial_database="data/Industrial_Database.csv",
     output:
@@ -481,6 +481,8 @@ rule prepare_sector_network:
         costs=CDIR + "costs_{}.csv".format(config['costs']['year']) if config["foresight"] == "overnight" else CDIR + "costs_{planning_horizons}.csv",
         profile_offwind_ac=pypsaeur("resources/profile_offwind-ac_{wyear}.nc"),
         profile_offwind_dc=pypsaeur("resources/profile_offwind-dc_{wyear}.nc"),
+        hydro_inflow_scaling_factors = 'data/2013_inflow_scaling.csv',
+        hydro_inflow_timeseries = 'data/2013_inflow_per_country.csv',
         h2_cavern="resources/salt_cavern_potentials_elec_wy{wyear}_s{simpl}_{clusters}.csv",
         busmap_s=pypsaeur("resources/busmap_elec_wy{wyear}_s{simpl}.csv"),
         busmap=pypsaeur("resources/busmap_elec_wy{wyear}_s{simpl}_{clusters}.csv"),
@@ -522,7 +524,7 @@ rule plot_network:
     output:
         map=RDIR + "/maps/elec_wy{wyear}_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}-costs-all_{planning_horizons}.pdf",
         today=RDIR + "/maps/elec_wy{wyear}_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}-today.pdf",
-        hydro_dispatch = RDIR + "/maps/hydro_dispatch_elec_wy{wyear}_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.pdf"
+        #hydro_dispatch = RDIR + "/maps/hydro_dispatch_elec_wy{wyear}_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}.pdf"
     threads: 2
     resources: mem_mb=10000
     benchmark: RDIR + "/benchmarks/plot_network/elec_wy{wyear}_s{simpl}_{clusters}_lv{lv}_{opts}_{sector_opts}_{planning_horizons}"

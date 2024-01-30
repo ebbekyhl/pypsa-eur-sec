@@ -243,7 +243,6 @@ def add_co2_sequestration_limit(n, sns):
 def read_dispatch(country):
     # Path must be changed to an external repository!
     historical_dispatch = pd.read_csv('hydro_dispatch/hydro_res_dispatch_' + country + '_ENTSOE.csv',index_col=0)
-    
     historical_dispatch.index = pd.to_datetime(historical_dispatch.index,utc=True)
     historical_dispatch = historical_dispatch.resample('h').sum()
     df = pd.DataFrame(index=pd.date_range('1/1/2013','1/1/2014',freq='h',inclusive='left'))
@@ -255,7 +254,6 @@ def read_dispatch(country):
         df1 = df1.drop(index_to_drop[i])
     df1['year'] = df1.index.year
     for year in df1.index.year.unique():
-        #print(year)
         df1_year = df1.query('year == @year')
         df1_year = df1_year[~df1_year.index.duplicated(keep='first')]
 
@@ -264,9 +262,8 @@ def read_dispatch(country):
                                       freq='h',tz='UTC')[0:-1]
 
         missing_dates = year_datetime.difference(df1_year.index)
-        #if len(missing_dates) > 0:
-        #    print('Imputing ',len(missing_dates), ' missing timestamp(s)!')
-        add_data = pd.DataFrame(columns=['Hydro Water Reservoir','year'],index=missing_dates)
+        add_data = pd.DataFrame(columns=['Hydro Water Reservoir','year'],
+                                index=missing_dates)
         add_data['year'] = missing_dates.year.values
         df1_year = pd.concat([df1_year,add_data]).sort_index()
         df1_year.interpolate().loc[missing_dates]
@@ -277,14 +274,16 @@ def read_dispatch(country):
             df1_year = df1_year.drop(index=feb_29.index)
 
         df[year] = df1_year.T.iloc[0].values
-        
+    
     return df
 
 def add_hydropower_constraint(n):
 
-    constraint_countries = ['AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 
-                            'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 
-                            'IT', 'LU', 'LV', 'ME', 'MK', 'NO', 'SE', 'SI','GB']
+    #constraint_countries = ['AT', 'BA', 'BE', 'BG', 'CH', 'CZ', 'DE', 
+    #                       'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 
+    #                       'IT', 'LU', 'LV', 'ME', 'MK', 'NO', 'SE', 'SI','GB']
+
+    constraint_countries = ['AT','CH','ES','FI','FR','GR','NO']
     df_min = {}
     df_max = {}
     for c in constraint_countries:
@@ -292,8 +291,8 @@ def add_hydropower_constraint(n):
             df = read_dispatch('UK')
         else:
             df = read_dispatch(c)
-        df_min[c] = df.quantile(0.05,axis=1).resample('m').sum() # <------------------------- Define lower limit
-        df_max[c] = df.quantile(0.95,axis=1).resample('m').sum() # <------------------------- Define upper limit
+        df_min[c] = df.min(axis=1).resample('m').sum() #df.quantile(0.05,axis=1).resample('m').sum() # <------------------------- Define lower limit
+        df_max[c] = df.max(axis=1).resample('m').sum() #df.quantile(0.95,axis=1).resample('m').sum() # <------------------------- Define upper limit
 
     hydro = n.storage_units.query('carrier == "hydro"')
     hydro_units = hydro.index
@@ -310,40 +309,138 @@ def add_hydropower_constraint(n):
             nodal_share = n.storage_units.loc[i].p_nom/country_capacity
             tres_factor = 8760/len(n.snapshots)
             limit_lower_series = nodal_share*df_min[country]/tres_factor
-            limit_upper = list(nodal_share*df_max[country]/tres_factor)
+            limit_upper_series = nodal_share*df_max[country]/tres_factor
+            limit_upper = list(limit_upper_series)
             
             # Scale according to inflow
-            inflow = n.storage_units_t.inflow[i].sum()
-            
-            if sum(limit_lower_series) > inflow:
-                print('Scaling according to inflow')
-                limit_lower_series *= inflow/sum(limit_lower)
-                
+            inflow = n.storage_units_t.inflow[i]#.sum()
+            A = inflow.resample('m').sum()
+            A.index = np.arange(12)
+            B = limit_lower_series
+            B.index = np.arange(12)
+            C = limit_upper_series
+            C.index = np.arange(12)
+
+            BC_mean = (B + C)*0.5
+
+            print(country)
+            print(hydro.loc[i].max_hours)
+            safety_factor = 0.9 # should be related to the size of the reservoir!  
+            if B.sum() > safety_factor*A.sum(): # comparing annual inflow and annual dispatch (should match)
+                print('Inflow does not suffice historical dispatch.')
+                print('Offsetting the dispatch constraint.')
+                scaling = A.sum()/BC_mean.sum() # scaling of dispatch constraint
+                print('Scaling factor:',scaling)
+                limit_lower_series *= scaling
+                print('Dispatch constraint was successfully scaled.')
             limit_lower = list(limit_lower_series)
         
             # BELOW LINES SHOULD BE UPDATED ACCORDING TO PYPSA VERSION!
             p = get_var(n, 'StorageUnit', 'p_dispatch')
             lhs_var = p[i]
-            ############################ DEFINE LOWER LIMIT ###################################
-            # LHS 1
-            lhs1 = linexpr((1, lhs_var)).groupby(p.index.month).apply(join_exprs)
+            lhs = linexpr((1, lhs_var)).groupby(p.index.month).apply(join_exprs)
 
+            ############################ DEFINE LOWER LIMIT ###################################
             # RHS 1
             lower_limit = pd.DataFrame(limit_lower, index=np.arange(1,13), columns=['hydro'])
             rhs1 = lower_limit['hydro'] 
-            define_constraints(n, lhs1, '>', rhs1, 'StorageUnit', 'hydro lower limit constraint ' + i)
+            define_constraints(n, lhs, '>', rhs1, 'StorageUnit', 'hydro lower limit constraint ' + i)
             
             ########################### DEFINE UPPER LIMIT ####################################
-            # LHS 2
-            lhs2 = linexpr((1, lhs_var)).groupby(p.index.month).apply(join_exprs)
-
             # RHS 2
             upper_limit = pd.DataFrame(limit_upper, index=np.arange(1,13), columns=['hydro'])
             rhs2 = upper_limit['hydro'] 
-            define_constraints(n, lhs2, '<', rhs2, 'StorageUnit', 'hydro upper limit constraint ' + i)
-
+            define_constraints(n, lhs, '<', rhs2, 'StorageUnit', 'hydro upper limit constraint ' + i)
         else:
-            print('hydro unit ', i, ' is attributed with max hours = 6 which is already constrains the seasonal hydropower operation.')
+            print('hydro unit ', i, ' is attributed with max hours = 6 which already constrains the seasonal hydropower operation.')
+
+def read_hydro_soc(country):
+    historical_soc = pd.read_csv('data/hydro_res_soc_ENTSOE.csv',index_col=0)
+    historical_soc.index = pd.to_datetime(historical_soc.index,utc=True)
+    df_soc = pd.DataFrame(index=pd.date_range('1/1/2015','1/1/2016',freq='w',inclusive='left'))
+    df1 = pd.DataFrame(historical_soc[country])
+    years_to_drop = df1.index.year.value_counts()[df1.index.year.value_counts() < 40].index
+    index_to_drop = [df1.index[df1.index.year == years_to_drop[i]] for i in range(len(years_to_drop))]
+    for i in range(len(index_to_drop)):
+        df1 = df1.drop(index_to_drop[i])
+    df1['year'] = df1.index.year
+    for year in df1.index.year.unique():
+        print(year)
+        df1_year = df1.query('year == @year')
+        df1_year = df1_year[~df1_year.index.duplicated(keep='first')]
+        df_soc[year] = df1_year.T.iloc[0].values[0:52]
+    df_soc = df_soc.interpolate()
+    return df_soc
+
+def add_hydro_soc_constraint(n):
+    # enforce model to reduce its deviation from the historical soc median
+    constraint_countries = ['AT','CH','ES','FI','FR','GR','NO']
+    df_m = {}
+    p_median = {}
+    ######################## READ HISTORICAL SOC DATA ############################
+    for c in constraint_countries:
+        if c == 'GB':
+            df_soc = read_hydro_soc('UK')
+            p = read_dispatch('UK')
+        else:
+            df_soc = read_hydro_soc(c)
+            p = read_dispatch(c)
+
+        df_median = df_soc.median(axis=1)
+        df_median_added = pd.Series(df_median.values[0],index=[df_median.index[-1] + pd.Timedelta('1w')])
+        df_median_collect = pd.concat([df_median,df_median_added])
+        df_median_collect = df_median_collect.groupby(df_median_collect.index.week).sum()
+        df_m[c] = df_median_collect
+        p_median[c] = p.median(axis=1) 
+
+    hydro = n.storage_units.query('carrier == "hydro"')
+    hydro_units = hydro.index
+    hydro_units_constrained = []
+    for c in constraint_countries:
+        hydro_units_constrained.append(list(hydro_units[hydro_units.str.contains(c)]))
+    hydro_units_constrained = [item for sublist in hydro_units_constrained for item in sublist]
+    
+    for i in hydro_units_constrained:
+        country = i[0:2]
+        country_capacity = hydro.loc[hydro.index[hydro.index.str.contains(country)]].p_nom.sum()
+        nodal_share = n.storage_units.loc[i].p_nom/country_capacity
+        tres_factor = 8760/len(n.snapshots)
+        median_series = nodal_share*df_m[country]*(168/tres_factor)
+
+        ######################## SCALE CONSTRAINT ACC. TO INFLOW ############################
+        # Scale according to inflow
+        inflow = n.storage_units_t.inflow[i]
+        A = inflow
+        B = nodal_share*p_median/tres_factor
+
+        if B.sum() > A.sum(): #safety_factor*A.sum(): # comparing annual inflow and annual dispatch (should match)
+            print('Inflow does not suffice historical dispatch.')
+            print('Offsetting the SOC constraint.')
+            scaling = A.sum()/B.sum() #BC_mean.sum() # scaling of dispatch constraint
+            median_series *= scaling
+            print('Scaling factor:',scaling)
+            print('SOC constraint was successfully scaled.')
+        
+        median = list(median_series)
+    
+        ########################## DEFINE LEFT HAND SIDE ###################################
+        # BELOW LINES SHOULD BE UPDATED ACCORDING TO PYPSA VERSION!
+        soc = get_var(n, 'StorageUnit', 'state_of_charge')
+        lhs_var = soc[i]
+        lhs = linexpr((1, lhs_var)).groupby(soc.index.week).apply(join_exprs)
+
+        dev = 0.6 # % deviation (reduce later)
+        ############################ DEFINE LOWER LIMIT ###################################
+        # RHS 1
+        median_lower_dev = pd.DataFrame((1-dev)*median, index=np.arange(1,13), columns=['hydro_soc'])
+        rhs1 = median_lower_dev['hydro_soc'] 
+        define_constraints(n, lhs, '>', rhs1, 'StorageUnit', 'hydro soc lower limit constraint ' + i)
+        
+        ########################### DEFINE UPPER LIMIT ####################################
+        # RHS 2
+        median_upper_dev = pd.DataFrame((1+dev)*median, index=np.arange(1,13), columns=['hydro_soc'])
+        rhs2 = median_upper_dev['hydro_soc'] 
+        define_constraints(n, lhs, '<', rhs2, 'StorageUnit', 'hydro soc upper limit constraint ' + i)
 
 def extra_functionality(n, snapshots):
     add_battery_constraints(n)
@@ -351,7 +448,8 @@ def extra_functionality(n, snapshots):
     add_co2_sequestration_limit(n, snapshots)
     sector_opts = snakemake.wildcards.sector_opts.split('-')
     if "hydroconstrained" in sector_opts:
-        add_hydropower_constraint(n)
+        #add_hydropower_constraint(n)
+        add_hydro_soc_constraint(n)
 
 
 def solve_network(n, config, opts='', **kwargs):

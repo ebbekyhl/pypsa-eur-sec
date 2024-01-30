@@ -12,6 +12,8 @@ from make_summary import assign_carriers
 from plot_summary import rename_techs, preferred_order
 from helper import override_component_attrs
 
+from solve_network import read_dispatch, read_hydro_soc
+
 plt.style.use('ggplot')
 
 
@@ -363,37 +365,59 @@ def plot_h2_map(network):
     )
 
 
-def plot_hydro(network):
+def plot_hydro_dispatch(network):
 
-    constraint_countries = ['NO','AT','BA','BE','BG',
-                            'CH','CZ','DE','ES',
-                            'FR','NO','SE']
+    constraint_countries = ['AT','CH','ES','FI','FR','GR','NO']
 
     fig = plt.figure(figsize=[10,3*len(constraint_countries)])
     gs = fig.add_gridspec(len(constraint_countries))
     axs = gs.subplots(sharex=True)
 
     hydro_units = network.storage_units.query('carrier == "hydro"')
-    #hydro_units_c = hydro_units[hydro_units.index.str.contains(c)]
+
+    df_min = {}
+    df_max = {}
 
     ii = 0
-    hydro_units_constrained = []
     for c in constraint_countries:
+        if c == 'GB':
+            df = read_dispatch('UK')
+        else:
+            df = read_dispatch(c)
+        print(df)
+        
+        #df_min[c] = df.quantile(0.05,axis=1).resample('m').sum() # <------------------------- Define lower limit
+        #df_max[c] = df.quantile(0.95,axis=1).resample('m').sum() # <------------------------- Define upper limit
+
+        df_min[c] = df.min(axis=1).resample('m').sum()
+        df_max[c] = df.max(axis=1).resample('m').sum()
+
+        #print(df_min[c])
+        #print(df_max[c])
+
         hydro_units_constrained = hydro_units[hydro_units.index.str.contains(c)]
-        for i in hydro_units_constrained.index:
-            country = i[0:2]
-            country_capacity = hydro_units_constrained.p_nom.sum()
-            nodal_share = hydro_units_constrained.loc[i].p_nom/country_capacity
-            limit_l = list(nodal_share*df_min[country]/1e6)
-            limit_u = list(nodal_share*df_max[country]/1e6)
-            x = df_min[country].index
-            axs[ii].fill_between(x,limit_l,limit_u,alpha=0.5,color='royalblue',lw=0)
+        
+        #for i in hydro_units_constrained.index:
+            #country_capacity = hydro_units_constrained.p_nom.sum()
+            #nodal_share = hydro_units_constrained.loc[i].p_nom/country_capacity
+            #limit_l = list(nodal_share*df_min[c]/1e6)
+            #limit_u = list(nodal_share*df_max[c]/1e6)
+            #x = df_min[c].index
+            #axs[ii].fill_between(x,limit_l,limit_u,alpha=0.5,color='royalblue',lw=0)
+
+        x = df_min[c].index
+        axs[ii].fill_between(x,df_min[c]/1e6,df_max[c]/1e6,alpha=0.5,color='royalblue',lw=0)
 
         hydro_t = network.storage_units_t.p[hydro_units.index[hydro_units.index.str.contains(c)]]
         disp_plot = ((hydro_t.resample('m').sum()*8760/len(network.snapshots))/1e6)
+
         disp_plot.index = x
 
-        axs[ii].plot(disp_plot.index,disp_plot)
+        n_inflow_c = n.storage_units_t.inflow[hydro_units_constrained.index].resample('m').sum()*8760/len(n.snapshots)/1e6
+
+        axs[ii].plot(n_inflow_c,lw=1.5,color='orange')
+
+        axs[ii].plot(disp_plot.index,disp_plot,lw=1.5,color='red')
         axs[ii].set_title(c)
         ii += 1
         
@@ -401,6 +425,47 @@ def plot_hydro(network):
                         hspace=0.2)
 
     fig.savefig(snakemake.output.hydro_dispatch, bbox_inches="tight")
+
+def plot_hydro_soc(network):
+
+    constraint_countries = ['AT','CH','ES','FI','FR','GR','NO']
+
+    fig = plt.figure(figsize=[10,3*len(constraint_countries)])
+    gs = fig.add_gridspec(len(constraint_countries))
+    axs = gs.subplots(sharex=True)
+    hydro_units = network.storage_units.query('carrier == "hydro"')
+    df_min = {}
+    df_max = {}
+    ii = 0
+    for c in constraint_countries:
+        if c == 'GB':
+            df = read_hydro_soc('UK')
+        else:
+            df = read_hydro_soc(c)
+        print(df)
+        df_min[c] = df.min(axis=1)#.resample('w').sum()/7
+        df_max[c] = df.max(axis=1)#.resample('w').sum()/7
+        
+        hydro_units_constrained = hydro_units[hydro_units.index.str.contains(c)]
+        
+        x = df_min[c].index
+        axs[ii].fill_between(x,df_min[c],df_max[c],alpha=0.5,color='royalblue',lw=0)
+
+        hydro_t = network.storage_units_t.state_of_charge[hydro_units.index[hydro_units.index.str.contains(c)]]
+        disp_plot = hydro_t #.resample('m').sum()/(8760/len(network.snapshots))
+        disp_plot.index = x
+
+        axs[ii].plot(n_inflow_c,lw=1.5,color='orange')
+
+        axs[ii].plot(disp_plot.index,disp_plot,lw=1.5,color='red')
+        axs[ii].set_title(c)
+        ii += 1
+        
+    fig.subplots_adjust(wspace=0.5,
+                        hspace=0.2)
+
+    fig.savefig(snakemake.output.hydro_dispatch, bbox_inches="tight")
+
 
 
 def plot_ch4_map(network):
@@ -833,6 +898,6 @@ if __name__ == "__main__":
     plot_h2_map(n)
     plot_ch4_map(n)
     plot_map_without(n)
-    plot_hydro(n)
+    #plot_hydro_soc(n)
     #plot_series(n, carrier="AC")
     #plot_series(n, carrier="heat")
